@@ -50,15 +50,13 @@ class StageState:
 def _load_firm_rules(firm_name: str) -> dict:
     with open(RULES_PATH) as f:
         data = json.load(f)
-    firms = {f["firm_name"].lower(): f for f in data["prop_firms"]}
+    # rules.json is a flat dict keyed by firm name
     key = firm_name.lower()
-    if key not in firms:
-        # fuzzy fallback
-        for k, v in firms.items():
-            if key in k or k in key:
+    for k, v in data.items():
+        if k.lower() == key or key in k.lower() or k.lower() in key:
+            if isinstance(v, dict):
                 return v
-        raise ValueError(f"Firm '{firm_name}' not found in rules.json. Available: {list(firms.keys())}")
-    return firms[key]
+    raise ValueError(f"Firm '{firm_name}' not found. Available: {[k for k in data if k != 'universally_banned']}")
 
 
 class StageManager:
@@ -86,35 +84,34 @@ class StageManager:
     # ── Stage rule lookup ───────────────────────────────────────────────────────
 
     def _stage_rules(self, stage: str) -> dict:
-        """Extract rules for a given stage from the firm rules dict."""
-        rules = self.firm_rules
-        stage_lower = stage.lower()
+        """Extract rules for a given stage from the firm rules dict.
+        rules.json uses: p1_target_pct, p2_target_pct, funded_target_pct,
+                         daily_dd_pct, max_dd_pct (can be null → use 10%)
+        """
+        r = self.firm_rules
+        daily_dd = r.get("daily_dd_pct") or 5.0
+        max_dd   = r.get("max_dd_pct") or 10.0   # null means trailing; default 10%
 
-        # Direct stage keys in rules.json vary by firm; normalise here
+        stage_lower = stage.lower()
         if stage_lower == "stage1":
             return {
-                "profit_target_pct": rules.get("phase1_profit_target_pct",
-                                               rules.get("profit_target_pct", 8.0)),
-                "daily_dd_pct":      rules.get("daily_dd_pct", 5.0),
-                "max_dd_pct":        rules.get("max_dd_pct",
-                                               rules.get("phase1_max_dd_pct", 10.0)),
-                "min_trading_days":  rules.get("min_trading_days", 5),
+                "profit_target_pct": r.get("p1_target_pct", 8.0),
+                "daily_dd_pct":      daily_dd,
+                "max_dd_pct":        max_dd,
+                "min_trading_days":  r.get("min_trading_days", 5),
             }
         elif stage_lower == "stage2":
             return {
-                "profit_target_pct": rules.get("phase2_profit_target_pct",
-                                               rules.get("profit_target_pct", 5.0)),
-                "daily_dd_pct":      rules.get("daily_dd_pct", 5.0),
-                "max_dd_pct":        rules.get("max_dd_pct",
-                                               rules.get("phase2_max_dd_pct", 10.0)),
-                "min_trading_days":  rules.get("min_trading_days", 5),
+                "profit_target_pct": r.get("p2_target_pct", 5.0),
+                "daily_dd_pct":      daily_dd,
+                "max_dd_pct":        max_dd,
+                "min_trading_days":  r.get("min_trading_days", 5),
             }
         else:  # FUNDED
             return {
-                "profit_target_pct": rules.get("funded_profit_target_pct", 0.0),
-                "daily_dd_pct":      rules.get("daily_dd_pct", 5.0),
-                "max_dd_pct":        rules.get("max_dd_pct",
-                                               rules.get("funded_max_dd_pct", 8.0)),
+                "profit_target_pct": r.get("funded_target_pct", 0.0),
+                "daily_dd_pct":      daily_dd,
+                "max_dd_pct":        max_dd,
                 "min_trading_days":  0,
             }
 

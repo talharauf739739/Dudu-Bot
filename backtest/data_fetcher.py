@@ -39,10 +39,12 @@ MAX_LOOKBACK: dict[str, int] = {
 
 # ForgeX TF name → yfinance interval
 TF_MAP: dict[str, str] = {
-    "1min":  "5m",    # yfinance 1m only goes 7 days; use 5m for backtests
+    "1min":  "5m",    # yfinance 1m only goes 7 days; use 5m as proxy
     "5min":  "5m",
     "15min": "15m",
+    "1h":    "1h",
     "1hr":   "1h",
+    "4h":    "1h",    # yfinance has no 4h; use 1h and display note
     "1d":    "1d",
 }
 

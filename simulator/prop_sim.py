@@ -23,16 +23,17 @@ RULES_PATH = Path(__file__).parent.parent / "knowledge_base" / "prop_firms" / "r
 def _all_firms() -> list[str]:
     with open(RULES_PATH) as f:
         data = json.load(f)
-    return [f["firm_name"] for f in data["prop_firms"]]
+    return [k for k, v in data.items() if isinstance(v, dict) and k != "universally_banned"]
 
 
 def _firm_rules(firm_name: str) -> dict:
     with open(RULES_PATH) as f:
         data = json.load(f)
-    for firm in data["prop_firms"]:
-        if firm["firm_name"].lower() == firm_name.lower():
-            return firm
-    raise ValueError(f"Firm '{firm_name}' not found.")
+    key = firm_name.lower()
+    for k, v in data.items():
+        if isinstance(v, dict) and (k.lower() == key or key in k.lower() or k.lower() in key):
+            return v
+    raise ValueError(f"Firm '{firm_name}' not found. Available: {_all_firms()}")
 
 
 # ── Result containers ──────────────────────────────────────────────────────────
@@ -156,8 +157,8 @@ class PropFirmSimulator:
     def _build_engine_rules(self) -> dict:
         r = self.firm_rules_dict
         return {
-            "daily_dd_pct": r.get("daily_dd_pct", 5.0),
-            "max_dd_pct":   r.get("max_dd_pct", r.get("phase1_max_dd_pct", 10.0)),
+            "daily_dd_pct": r.get("daily_dd_pct") or 5.0,
+            "max_dd_pct":   r.get("max_dd_pct") or 10.0,   # null = trailing DD; default 10%
         }
 
     def _pnl(self, direction: str, entry: float, exit_price: float,
@@ -178,7 +179,7 @@ class PropFirmSimulator:
         ohlc_map: dict[str, pd.DataFrame] = {}
         for sym in self.symbols:
             try:
-                df = fetch_ohlc(sym, self.timeframe, period="1y")
+                df = fetch_ohlc(sym, self.timeframe, days=365)
                 if df is not None and not df.empty:
                     ohlc_map[sym] = df
             except Exception as e:
@@ -202,7 +203,7 @@ class PropFirmSimulator:
                 continue
             for sym, df in ohlc_map.items():
                 try:
-                    sigs = run_strategy(strategy_id, df)
+                    sigs = run_strategy(strategy_id, df, sym)
                     for ts, row in sigs.iterrows():
                         if row.get("signal") and row.get("score", 0) >= 6.0:
                             all_signals.append((ts, strategy_id, sym, row.to_dict()))

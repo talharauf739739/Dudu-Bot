@@ -7,12 +7,10 @@ Rejects if expected win rate < 65%.
 
 import json
 from pathlib import Path
-import anthropic
 from core.state import ForgeXState
 from core.mcp_client import journal_mcp
 from core.config import settings
-
-_client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+import core.llm_client as llm
 
 _STRATEGY_PATH = (
     Path(__file__).parent.parent / "knowledge_base" / "strategies" / "strategies.json"
@@ -55,7 +53,7 @@ def _calculate_lot_size(account_balance: float, risk_pct: float, entry: float, s
 
 
 def _ask_claude(setup: dict, strategy: dict, account_balance: float) -> dict:
-    """Use Claude to calculate precise Entry/SL/TP and validate the trade."""
+    """Use Groq LLM to calculate precise Entry/SL/TP and validate the trade."""
     prompt = f"""You are a professional Forex trading assistant for ForgeX AI.
 
 Setup detected:
@@ -88,14 +86,7 @@ Return ONLY valid JSON in this exact format:
 If the setup is unclear or invalid, return:
 {{"direction": null, "entry_price": 0, "sl_price": 0, "tp_price": 0, "risk_rr": 0, "reasoning": "rejected: reason"}}
 """
-    response = _client.messages.create(
-        model=settings.CLAUDE_MODEL,
-        max_tokens=512,
-        temperature=0.1,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    text = response.content[0].text.strip()
-    # Extract JSON from response
+    text = llm.ask(prompt, max_tokens=512, temperature=0.1, json_mode=True)
     if "```" in text:
         text = text.split("```")[1].replace("json", "").strip()
     return json.loads(text)

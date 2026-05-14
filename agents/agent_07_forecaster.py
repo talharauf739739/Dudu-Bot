@@ -6,12 +6,10 @@ Runs at end of each trading session.
 """
 
 import json
-import anthropic
 from core.state import ForgeXState
 from core.mcp_client import journal_mcp, telegram_mcp
 from core.config import settings
-
-_client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+import core.llm_client as llm
 
 STRATEGY_IDS = ["S-01", "S-02", "S-03", "S-04", "S-05",
                  "S-06", "S-07", "S-08", "S-09", "S-10"]
@@ -54,13 +52,7 @@ Respond in 3-4 concise lines suitable for a Telegram message.
 Start with: "Best window:" then "Top setup:" then "Avoid:" then "Watch:"
 """
     try:
-        response = _client.messages.create(
-            model=settings.CLAUDE_MODEL,
-            max_tokens=256,
-            temperature=0.2,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return response.content[0].text.strip()
+        return llm.ask(prompt, max_tokens=256, temperature=0.2)
     except Exception as e:
         return f"Forecast unavailable: {e}"
 
