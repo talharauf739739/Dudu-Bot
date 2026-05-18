@@ -14,6 +14,7 @@ SERVER_MODULE_MAP: dict[str, str] = {
     "mcp-propfirm-kb":  "mcp_servers.mcp_propfirm_kb.server",
     "mcp-forexfactory": "mcp_servers.mcp_forexfactory.server",
     "mcp-tradelocker":  "mcp_servers.mcp_tradelocker.server",
+    "mcp-deriv":        "mcp_servers.mcp_deriv.server",
     "mcp-tradingview":  "mcp_servers.mcp_tradingview.server",
     "mcp-telegram":     "mcp_servers.mcp_telegram.server",
     "mcp-journal":      "mcp_servers.mcp_journal.server",
@@ -45,6 +46,10 @@ class MCPToolCaller:
 propfirm_mcp  = MCPToolCaller("mcp-propfirm-kb")
 forex_mcp     = MCPToolCaller("mcp-forexfactory")
 tradelocker   = MCPToolCaller("mcp-tradelocker")
+deriv         = MCPToolCaller("mcp-deriv")
 tradingview   = MCPToolCaller("mcp-tradingview")
 telegram_mcp  = MCPToolCaller("mcp-telegram")
 journal_mcp   = MCPToolCaller("mcp-journal")
+
+# Active broker — swap here to switch between TradeLocker and Deriv
+broker = deriv

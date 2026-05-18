@@ -4,6 +4,9 @@ Entry point: uvicorn app:app --reload
 Dashboard: http://localhost:8000/docs
 """
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

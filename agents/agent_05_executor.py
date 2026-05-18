@@ -1,7 +1,7 @@
 """
 Agent-05 — Executor
 Only activates after Agent-04 APPROVED.
-Places and manages full trade lifecycle on TradeLocker DEMO.
+Places and manages full trade lifecycle via active broker (Deriv).
 Monitors position every 30 seconds.
 Partial close at 1:1 R:R, moves SL to BE, closes on TP/SL.
 """
@@ -9,7 +9,7 @@ Partial close at 1:1 R:R, moves SL to BE, closes on TP/SL.
 import time
 from datetime import datetime
 from core.state import ForgeXState
-from core.mcp_client import tradelocker
+from core.mcp_client import broker as tradelocker
 
 MONITOR_INTERVAL_SEC = 30
 MAX_MONITOR_LOOPS = 480       # 4 hours max hold
@@ -44,13 +44,16 @@ def run(state: ForgeXState) -> dict:
 
     try:
         # ── Place order ───────────────────────────────────────────────────────
+        # stake = lot_size × 10 (1 lot → $10 stake on Deriv Multipliers)
+        stake = round(float(lot_size) * 10, 2)
         order = tradelocker.call(
             "place_order",
             symbol=symbol,
             direction=direction,
-            size=lot_size,
-            sl=sl,
-            tp=tp,
+            stake=stake,
+            multiplier=100,
+            stop_loss_usd=round(stake * 0.5, 2),
+            take_profit_usd=round(stake * rr, 2),
         )
 
         if order.get("status") == "error":

@@ -62,6 +62,20 @@ class Settings(BaseSettings):
     EXNESS_SERVER: str = ""
     EXNESS_ACCOUNT_TYPE: str = "standard"
 
+    # Deriv
+    DERIV_API_KEY: str = ""
+    DERIV_API_KEY_REAL: str = ""
+    DERIV_APP_ID: int = 1089
+    DERIV_WS_URL: str = "wss://ws.derivws.com/websockets/v3"
+    DERIV_ACCOUNT_ID: str = "VRTC6144147"
+    DERIV_ACCOUNT_ID_REAL: str = "CR3988560"
+    DERIV_MODE: str = "demo"
+
+    # FundedNext
+    FUNDEDNEXT_EMAIL: str = ""
+    FUNDEDNEXT_PASSWORD: str = ""
+    FUNDEDNEXT_ACCOUNT_ID: str = ""
+
     # FastAPI
     APP_HOST: str = "0.0.0.0"
     APP_PORT: int = 8000

@@ -1,7 +1,7 @@
 """
 Agent-03 — Strategy Oracle
-Matches confirmed setup to best strategy from KB.
-Uses Claude to reason over entry/SL/TP calculation.
+Matches confirmed setup to best strategy using RAG (backtest results + strategy rules).
+Uses Groq LLM to reason over entry/SL/TP — grounded by real historical data.
 Rejects if expected win rate < 65%.
 """
 
@@ -11,6 +11,7 @@ from core.state import ForgeXState
 from core.mcp_client import journal_mcp
 from core.config import settings
 import core.llm_client as llm
+from rag.vector_store import query_full_context, query_backtest_results
 
 _STRATEGY_PATH = (
     Path(__file__).parent.parent / "knowledge_base" / "strategies" / "strategies.json"
@@ -52,11 +53,13 @@ def _calculate_lot_size(account_balance: float, risk_pct: float, entry: float, s
     return round(max(0.01, min(lot, 10.0)), 2)
 
 
-def _ask_claude(setup: dict, strategy: dict, account_balance: float) -> dict:
-    """Use Groq LLM to calculate precise Entry/SL/TP and validate the trade."""
+def _ask_llm_with_rag(setup: dict, strategy: dict, account_balance: float, rag_context: str) -> dict:
+    """Use Groq LLM + RAG context to calculate precise Entry/SL/TP."""
     prompt = f"""You are a professional Forex trading assistant for ForgeX AI.
 
-Setup detected:
+{rag_context}
+
+=== CURRENT SETUP ===
 - Symbol: {setup['symbol']}
 - Timeframe: {setup['timeframe']}
 - Pattern: {setup['pattern']}
@@ -64,7 +67,8 @@ Setup detected:
 - Direction hint: {setup.get('direction', 'unclear')}
 - Entry zone: {setup['entry_zone']}
 
-Matched Strategy: {strategy['name']} ({strategy['id']})
+=== SELECTED STRATEGY ===
+Strategy: {strategy['name']} ({strategy['id']})
 - Entry rule: {strategy['entry_rule']}
 - SL rule: {strategy['sl_rule']}
 - TP rule: {strategy['tp_rule']}
@@ -73,20 +77,21 @@ Matched Strategy: {strategy['name']} ({strategy['id']})
 Account balance: ${account_balance:.2f}
 Risk per trade: {settings.MAX_RISK_PER_TRADE_PCT}%
 
-Return ONLY valid JSON in this exact format:
+Using the historical performance data above, calculate precise trade levels.
+Return ONLY valid JSON:
 {{
   "direction": "BUY or SELL",
   "entry_price": 0.00000,
   "sl_price": 0.00000,
   "tp_price": 0.00000,
   "risk_rr": 0.0,
-  "reasoning": "brief explanation"
+  "reasoning": "brief explanation referencing backtest data"
 }}
 
-If the setup is unclear or invalid, return:
+If the setup is invalid return:
 {{"direction": null, "entry_price": 0, "sl_price": 0, "tp_price": 0, "risk_rr": 0, "reasoning": "rejected: reason"}}
 """
-    text = llm.ask(prompt, max_tokens=512, temperature=0.1, json_mode=True)
+    text = llm.ask(prompt, max_tokens=600, temperature=0.1, json_mode=True)
     if "```" in text:
         text = text.split("```")[1].replace("json", "").strip()
     return json.loads(text)
@@ -118,15 +123,27 @@ def run(state: ForgeXState) -> dict:
             kb["strategies"][0],
         )
 
-        # Check historical win rate
+        # Check historical win rate (live DB first, backtest fallback)
         win_rate = _get_strategy_win_rate(strategy_id)
+        if win_rate == 0.0:
+            bt = query_backtest_results(strategy_id=strategy_id, symbol=symbol, n_results=1)
+            if bt:
+                win_rate = float(bt[0]["meta"].get("win_rate", 0))
         if win_rate > 0 and win_rate < settings.MIN_WIN_RATE_PCT:
             logs.append(f"[Agent-03] REJECTED — {strategy_id} win rate {win_rate:.1f}% < {settings.MIN_WIN_RATE_PCT}%")
             return {**state, "selected_trade": None, "agent_logs": logs}
 
-        # Claude calculates precise levels
+        # RAG: pull strategy rules + historical backtest performance
+        rag_context = query_full_context(
+            instrument=symbol,
+            session=setup.get("session", ""),
+            direction_hint=setup.get("direction", ""),
+        )
+        logs.append(f"[Agent-03] RAG context loaded ({len(rag_context)} chars)")
+
+        # Groq calculates precise levels using RAG context
         account_balance = state.get("account_balance", 10000.0)
-        calc = _ask_claude(setup, strategy, account_balance)
+        calc = _ask_llm_with_rag(setup, strategy, account_balance, rag_context)
 
         if not calc.get("direction") or calc["entry_price"] == 0:
             logs.append(f"[Agent-03] REJECTED by Claude: {calc.get('reasoning', 'invalid setup')}")

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from api.schemas.trade_schema import DashboardOut, SystemStateOut, AgentStatusOut
-from core.mcp_client import journal_mcp, tradelocker
+from core.mcp_client import journal_mcp, broker
 from core.config import settings
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
@@ -30,12 +30,18 @@ def update_state(state: dict):
 def get_dashboard():
     state = _system_state
 
-    balance = state.get("account_balance", 0.0)
     daily_stats = {}
     try:
         daily_stats = journal_mcp.call("get_daily_stats")
     except Exception:
         pass
+
+    balance = state.get("account_balance", 0.0)
+    if not balance:
+        try:
+            balance = broker.call("get_account_balance").get("balance", 0.0)
+        except Exception:
+            pass
 
     system = SystemStateOut(
         session_active=state.get("session_active", False),

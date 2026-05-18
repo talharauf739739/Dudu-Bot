@@ -56,6 +56,42 @@ CREATE TABLE IF NOT EXISTS signals (
     trade_id     INTEGER REFERENCES trades(trade_id)
 );
 
+CREATE TABLE IF NOT EXISTS backtest_results (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_at           TEXT    NOT NULL DEFAULT (datetime('now')),
+    strategy_id      TEXT    NOT NULL,
+    symbol           TEXT    NOT NULL,
+    timeframe        TEXT    NOT NULL,
+    prop_firm        TEXT    NOT NULL,
+    total_trades     INTEGER NOT NULL DEFAULT 0,
+    wins             INTEGER NOT NULL DEFAULT 0,
+    losses           INTEGER NOT NULL DEFAULT 0,
+    win_rate         REAL    NOT NULL DEFAULT 0,
+    net_pnl_usd      REAL    NOT NULL DEFAULT 0,
+    net_pnl_pct      REAL    NOT NULL DEFAULT 0,
+    avg_rr           REAL    NOT NULL DEFAULT 0,
+    max_drawdown_pct REAL    NOT NULL DEFAULT 0,
+    profit_factor    REAL    NOT NULL DEFAULT 0,
+    blocked_trades   INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS ohlc_cache (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol      TEXT    NOT NULL,
+    timeframe   TEXT    NOT NULL,
+    ts          TEXT    NOT NULL,
+    open        REAL    NOT NULL,
+    high        REAL    NOT NULL,
+    low         REAL    NOT NULL,
+    close       REAL    NOT NULL,
+    volume      REAL    NOT NULL DEFAULT 0,
+    UNIQUE(symbol, timeframe, ts)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ohlc_symbol_tf  ON ohlc_cache(symbol, timeframe, ts DESC);
+CREATE INDEX IF NOT EXISTS idx_bt_strategy     ON backtest_results(strategy_id);
+CREATE INDEX IF NOT EXISTS idx_bt_symbol       ON backtest_results(symbol);
+
 CREATE INDEX IF NOT EXISTS idx_trades_timestamp   ON trades(timestamp DESC);
 CREATE INDEX IF NOT EXISTS idx_trades_strategy    ON trades(strategy_id);
 CREATE INDEX IF NOT EXISTS idx_trades_instrument  ON trades(instrument);
