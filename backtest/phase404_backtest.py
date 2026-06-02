@@ -38,9 +38,11 @@ from backtest.engine import BacktestEngine
 SYMBOLS = {
     "EURUSD":  {"ticker": "EURUSD=X", "interval": "5m",  "days": 7,  "pip": 0.0001, "pip_val": 10.0},
     "GBPUSD":  {"ticker": "GBPUSD=X", "interval": "5m",  "days": 7,  "pip": 0.0001, "pip_val": 10.0},
-    "XAUUSD":  {"ticker": "GC=F",     "interval": "15m", "days": 60, "pip": 0.1,    "pip_val": 1.0},
+    "AUDUSD":  {"ticker": "AUDUSD=X", "interval": "5m",  "days": 7,  "pip": 0.0001, "pip_val": 10.0},
     "USDJPY":  {"ticker": "USDJPY=X", "interval": "5m",  "days": 7,  "pip": 0.01,   "pip_val": 10.0},
-    # NAS100 excluded — US market only (13:00–19:00 UTC), no Asian session
+    "GBPJPY":  {"ticker": "GBPJPY=X", "interval": "5m",  "days": 7,  "pip": 0.01,   "pip_val": 10.0},
+    "NAS100":  {"ticker": "^NDX",     "interval": "15m", "days": 60, "pip": 1.0,    "pip_val": 1.0},
+    "US30":    {"ticker": "^DJI",     "interval": "15m", "days": 60, "pip": 1.0,    "pip_val": 1.0},
 }
 
 ACCOUNT_SIZE = 10_000.0
@@ -117,7 +119,7 @@ def simulate_all_levels(df: pd.DataFrame, signals, symbol: str) -> list[dict]:
 
             # Forward scan: first check if entry level is reached, then monitor
             entry_hit = False
-            for j in range(bos_loc + 1, min(bos_loc + 200, len(df))):
+            for j in range(bos_loc + 1, min(bos_loc + 500, len(df))):
                 bar = df.iloc[j]
 
                 # Check entry hit
